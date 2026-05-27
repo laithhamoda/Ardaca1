@@ -1,0 +1,114 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ardaca-postgres
+    environment:
+      POSTGRES_USER: ardaca_user
+      POSTGRES_PASSWORD: ardaca_password
+      POSTGRES_DB: ardaca
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - ardaca
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ardaca_user -d ardaca"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: ardaca-redis
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - ardaca
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./packages/backend
+      dockerfile: Dockerfile
+    container_name: ardaca-backend
+    environment:
+      NODE_ENV: development
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: ardaca_user
+      DATABASE_PASSWORD: ardaca_password
+      DATABASE_NAME: ardaca
+      JWT_SECRET: super-secret-jwt-key-change-in-production
+      JWT_REFRESH_SECRET: super-secret-refresh-key-change-in-production
+      REDIS_URL: redis://redis:6379
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ardaca
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+  frontend:
+    build:
+      context: ./packages/frontend
+      dockerfile: Dockerfile
+    container_name: ardaca-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3000/api
+      NODE_ENV: development
+    ports:
+      - "3001:3000"
+    depends_on:
+      - backend
+    networks:
+      - ardaca
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+  proxy:
+    image: nginx:stable-alpine
+    container_name: ardaca-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - ardaca
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  ardaca:
+    driver: bridge

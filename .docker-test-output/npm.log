@@ -1,0 +1,10 @@
+npm error code ETARGET
+npm error notarget No matching version found for socket.io@^4.9.1.
+npm error notarget In most cases you or one of your dependencies are requesting
+npm error notarget a package version that doesn't exist.
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.15.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.15.0
+npm notice To update run: npm install -g npm@11.15.0
+npm notice
+npm error A complete log of this run can be found in: /root/.npm/_logs/2026-05-27T07_03_57_722Z-debug-0.log
